@@ -56,7 +56,7 @@ See `docs/requirements.md` for the complete requirements and acceptance criteria
 
 ## License
 
-This project is licensed under the MIT License. See `LICENSE` for the full text and `NOTICE` for third-party references.
+This project is licensed under the MIT License. See `LICENSE` for the full text, `NOTICE` for third-party references, and `THIRD_PARTY_LICENSES.md` for preserved third-party copyright and license notices.
 
 ## Agent Skill
 
