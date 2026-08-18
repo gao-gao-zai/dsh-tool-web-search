@@ -1,6 +1,6 @@
 {
   "name": "@linxin666/dsh-tool-web-search",
-  "description": "Persistent DSH model tool for Bing and SearXNG web search with bounded link-and-snippet results.",
+  "description": "Persistent DSH model tools for Bing and SearXNG web search plus bounded webpage fetching.",
   "version": "0.1.0",
   "type": "module",
   "engines": {
@@ -47,7 +47,9 @@
   },
   "dependencies": {
     "cheerio": "^1.1.2",
-    "@deepseek-ai/schemastery": "^3.18.1"
+    "@deepseek-ai/schemastery": "^3.18.1",
+    "turndown": "^7.2.4",
+    "@joplin/turndown-plugin-gfm": "^1.0.67"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
@@ -63,6 +65,7 @@
     "@deepseek-ai/dsh-tools": "^0.1.0-rc.7",
     "@deepseek-ai/dsh-skill-filesystem": "^0.1.0-rc.7",
     "@types/node": "^22.20.0",
+    "@types/turndown": "^5.0.6",
     "tsdown": "^0.22.2",
     "typescript": "~5.7.2",
     "vitest": "^3.0.0"

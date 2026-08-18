@@ -4,14 +4,15 @@
 
 本插件为 DeepSeek Harness（DSH）提供一个模型工具，使 Agent 能够通过配置的搜索引擎发现当前网页信息。
 
-本期只实现搜索能力：
+本期实现搜索和网页抓取能力：
 
-1. **搜索工具 `web_search_configured`**：提交关键词，返回可能存在答案的网页标题、链接和简介。
-2. **不实现网页爬取**：不抓取搜索结果网页正文，不提供 `web_fetch`，不下载或解析图片，不引入 `turndown`。
+1. **搜索工具 `web_search`**：提交关键词，返回可能存在答案的网页标题、链接和简介。
+2. **抓取工具 `web_fetch`**：读取指定 HTTP(S) 网页，将 HTML 转换为有界 Markdown 或返回文本内容。
+3. 不下载或解析图片资源，不依赖图像识别能力。
 
-插件是 DSH 的持久化扩展，应作为正式 Host 插件随 profile 加载，而不是当前会话中的临时动态 Cordis Plugin。
+插件是 DSH 的持久化扩展，应作为正式 Host 插件随 profile 加载，而不是当前会话中的临时动态 Cordis Plugin。使用前由用户在 DSH 插件/profile 设置中禁用官方 `tool-web`，本插件提供同名替代工具。
 
-## 2. 搜索工具 `web_search_configured`
+## 2. 搜索工具 `web_search`
 
 ### 2.1 输入
 
@@ -55,7 +56,7 @@
 ### 2.3 约束
 
 - 只返回标题、URL 和搜索引擎提供的简介；
-- 不请求搜索结果网页，不返回网页正文；
+- 搜索阶段不请求搜索结果网页，不返回网页正文；需要正文时由 Agent 显式调用 `web_fetch`；
 - 不返回原始 HTML、原始 JSON、搜索引擎内部字段或调试数据；
 - 搜索失败、配置错误、限流、超时和响应格式错误应转换为结构化错误，不抛出未处理异常打断 Agent。
 
@@ -67,10 +68,13 @@
 interface WebSearchConfig {
   enabled: boolean
   announceToAgent: boolean
+  fetch: boolean
   engine: 'bing' | 'searxng'
   maxResults: number
   timeoutMs: number
+  fetchTimeoutMs: number
   maxResponseBytes: number
+  fetchMaxOutputChars: number
   bing: {
     market: string
     setLang?: string
@@ -124,7 +128,33 @@ GET {baseUrl}/search?q={query}&format=json
 
 SearXNG 本身为 AGPL-3.0 软件，本插件只作为 API 客户端调用，不包含 SearXNG 源码。
 
-## 4. 返回长度与 Token 限制
+## 4. 网页抓取工具 `web_fetch`
+
+输入为单个 HTTP(S) URL，输出保持与官方 DSH web tool 兼容的结构：
+
+```json
+{
+  "url": "https://example.com/article",
+  "statusCode": 200,
+  "body": { "kind": "html", "content": "<html>...</html>" },
+  "truncated": false
+}
+```
+
+实现要求：
+
+- 只允许 `http:` 和 `https:` URL；
+- 使用有界、可取消的 GET 请求，遵守 `fetchTimeoutMs` 和 `maxResponseBytes`；
+- HTML 使用 `turndown` 和 GFM 插件转换为 Markdown；
+- 移除 `script`、`style` 和 `noscript` 节点；
+- `text/plain`、JSON 和 XML 等文本类型直接返回文本；
+- 非文本二进制类型返回结构化 `INVALID_RESPONSE` 错误；
+- 最终渲染结果不超过 `fetchMaxOutputChars`，截断时附带明确提示；
+- 不执行网页脚本，不下载或解析图片内容，不跟随页面内链接继续爬取；
+- 不把完整 HTTP Header 或凭据写入日志和工具输出。
+
+
+## 5. 返回长度与 Token 限制
 
 限制必须在引擎结果规范化阶段和最终工具渲染阶段执行，不能只依赖提示文本或前端显示：
 
@@ -137,7 +167,7 @@ SearXNG 本身为 AGPL-3.0 软件，本插件只作为 API 客户端调用，不
 - 错误信息也必须经过长度限制；
 - 限制逻辑必须有测试，保证异常长搜索结果不会突破硬上限。
 
-## 5. HTTP、超时与错误处理
+## 6. HTTP、超时与错误处理
 
 统一 HTTP 层负责：
 
@@ -164,21 +194,20 @@ SearXNG 本身为 AGPL-3.0 软件，本插件只作为 API 客户端调用，不
 - `CANCELLED`
 - `INTERNAL_ERROR`
 
-## 6. 持久化插件与工具冲突处理
+## 7. 持久化插件与工具冲突处理
 
-当前 DSH 官方 `@deepseek-ai/dsh-tool-web` 已注册 `web_search` 和 `web_fetch`。由于 shipped Agent preset 在插件 bundle 之后加载，本插件不尝试覆盖官方工具，而是使用独立名称 `web_search_configured`。
+当前 DSH 官方 `@deepseek-ai/dsh-tool-web` 已注册 `web_search` 和 `web_fetch`。用户需要先在 DSH 插件/profile 设置中禁用官方 `tool-web`，再启动本插件；本插件不修改 shipped preset。
 
 新插件包的 `cordis.patch.yml` 应：
 
-1. 保留官方 `tool-web` 行不变；
-2. 插入新插件行和插件内 Skill provider；
-3. 确保自定义工具 `web_search_configured` 可以单独调用，且不存在自定义 `web_fetch`；
-4. 不修改 DSH 安装目录中的 shipped preset；
-5. 独立安装和全家桶安装均可加载。
+1. 插入新插件行和插件内 Skill provider；
+2. 不再尝试从 profile bundle 里禁用 shipped preset 的 `tool-web`；
+3. 用户禁用官方行后，由本插件提供兼容的 `web_search` 和 `web_fetch`；
+4. 独立安装和全家桶安装都能加载。
 
 插件为 Host-only，不声明 Client half。工具注册、system prompt 和设置监听器必须绑定当前 Fiber，在停止、更新和卸载时自动清理。
 
-## 7. 配置与秘密
+## 8. 配置与秘密
 
 - 使用 DSH settings namespace 持久化配置；
 - `engine` 为 `bing` 时使用 Bing 配置；为 `searxng` 时校验 SearXNG 地址和凭据引用；
@@ -188,7 +217,7 @@ SearXNG 本身为 AGPL-3.0 软件，本插件只作为 API 客户端调用，不
 - 凭据缺失时返回 `MISSING_CREDENTIAL`，不发起 SearXNG 请求；
 - 错误、日志和工具输出中不得泄露 API key。
 
-## 8. 依赖与许可证合规
+## 9. 依赖与许可证合规
 
 | 项目 | 用途 | 协议 | 合规要求 |
 | --- | --- | --- | --- |
@@ -196,9 +225,11 @@ SearXNG 本身为 AGPL-3.0 软件，本插件只作为 API 客户端调用，不
 | HTML 解析器 | 解析 Bing HTML 搜索结果 | 以实际依赖为准 | 引入前检查协议并记录在依赖清单 |
 | SearXNG | 可选搜索后端，仅通过 API 调用 | AGPL-3.0 | 本插件不包含其源码，自建实例方负责遵守其协议 |
 
-本插件自身建议采用 MIT License。由于本期不进行网页转换，不引入 `turndown` 或 `@types/turndown`。
+| `@deepseek-ai/dsh-tool-web` | `web_fetch` 工具契约与 HTML→Markdown 转换参考 | MIT | 本插件保留兼容实现并保留本声明 |
+| `turndown` | HTML 转 Markdown | MIT | 运行时依赖 |
+| `@joplin/turndown-plugin-gfm` | GFM 表格和删除线支持 | MIT | 运行时依赖 |
 
-## 9. 测试要求
+## 10. 测试要求
 
 ### 单元测试
 
@@ -208,6 +239,7 @@ SearXNG 本身为 AGPL-3.0 软件，本插件只作为 API 客户端调用，不
 - SearXNG JSON 映射、缺失字段、空结果和错误响应；
 - URL、标题、摘要清理与长度限制；
 - 最终输出不超过 16K 字符；
+- `web_fetch` URL 校验、HTML/text 类型识别、Turndown 转换和输出截断；
 - HTTP 状态码、超时、取消、响应体过大和重试映射；
 - API key 只出现在请求 Header，不出现在 URL、日志和输出；
 - 配置与凭据变更影响下一次调用。
@@ -218,15 +250,16 @@ SearXNG 本身为 AGPL-3.0 软件，本插件只作为 API 客户端调用，不
 - `enabled: false` 时不注册工具；
 - Bing 不依赖 credentials 服务即可运行；
 - SearXNG 缺少凭据时返回结构化错误；
-- 自定义 `web_search_configured` 能与官方 `web_search` 共存且不会重复注册；
+- 用户禁用官方 `tool-web` 后，本插件能注册 `web_search` 和 `web_fetch` 且不重复；
 - 独立包和聚合包都能通过 profile mount、typecheck、test 和 build。
 
-## 10. 验收标准
+## 11. 验收标准
 
-- [ ] 只有 `web_search_configured` 工具，没有 `web_fetch`；
+- [ ] 用户禁用官方 `tool-web` 后，插件提供 `web_search` 和 `web_fetch`；
 - [ ] Bing 后端可用并返回标题、URL、简介；
 - [ ] SearXNG 后端可配置并使用凭据引用；
-- [ ] 搜索工具不访问搜索结果网页正文；
+- [ ] `web_fetch` 可读取 HTTP(S) 页面并将 HTML 转为有界 Markdown；
+- [ ] 搜索工具不访问搜索结果网页正文，抓取只在显式调用 `web_fetch` 时发生；
 - [ ] 默认最多 10 条结果，摘要最多 200 字符，总输出最多 16K 字符；
 - [ ] 超时、限流、鉴权失败和无效响应返回结构化错误；
 - [ ] API key 不会出现在日志、URL 或工具输出；

@@ -1,10 +1,10 @@
 # DSH Web Search
 
-Persistent Host-side DSH tool that searches Bing or SearXNG and returns only bounded link-and-snippet results.
+Persistent Host-side DSH tools that search Bing or SearXNG and fetch specific HTTP(S) pages with bounded output.
 
 ## Scope
 
-This package exposes `web_search_configured` only. It does not fetch result pages, return webpage content, download images, or depend on `turndown`.
+This package exposes `web_search` and `web_fetch`. It fetches specific HTTP(S) result pages and converts HTML to bounded Markdown with `turndown`; it does not download or interpret images.
 
 ## Install
 
@@ -12,7 +12,7 @@ This package exposes `web_search_configured` only. It does not fetch result page
 dsh plugin --profile web add link:/absolute/path/to/WebSearch
 ```
 
-Restart the profile after installation. The package contributes `web_search_configured`, a separate tool that uses this plugin's Bing/SearXNG settings and avoids colliding with the built-in `web_search`. `web_fetch` is intentionally absent.
+Before starting a session, disable the shipped official `tool-web` plugin in the DSH plugin/profile settings. The package patch cannot modify a shipped Agent preset after it is mounted. Then restart the profile. This package contributes replacement tools named `web_search` and `web_fetch`.
 
 ## Configuration
 
@@ -22,6 +22,10 @@ The plugin uses the `dsh-web-search` settings namespace. The default engine is B
 engine: bing
 maxResults: 10
 timeoutMs: 30000
+fetch: true
+fetchTimeoutMs: 30000
+maxResponseBytes: 2000000
+fetchMaxOutputChars: 200000
 bing:
   market: zh-CN
   setLang: zh-CN
@@ -42,10 +46,11 @@ The API key is resolved per request through DSH credentials, with an environment
 
 ## Limits
 
-- Up to 10 results per call.
-- Up to 200 Unicode characters per snippet.
-- Up to 16K characters in rendered tool output.
-- Oversized responses are truncated or rejected before parsing.
+- Search: up to 10 results per call.
+- Search: up to 200 Unicode characters per snippet.
+- Search: up to 16K characters in rendered tool output.
+- Fetch: up to 200K characters in rendered Markdown/text output.
+- Both tools: oversized network responses are rejected before unbounded parsing.
 
 See `docs/requirements.md` for the complete requirements and acceptance criteria.
 

@@ -3,13 +3,27 @@ export type SearchEngineName = 'bing' | 'searxng'
 
 /** Runtime settings shared by both search backends. */
 export interface WebSearchConfig {
+  /** Whether the plugin registers its model-facing tools. */
   enabled: boolean
+  /** Whether the plugin adds its operational guidance to the system prompt. */
   announceToAgent: boolean
+  /** Whether the plugin registers the search and fetch tools. */
+  fetch: boolean
+  /** Search backend selection. */
   engine: SearchEngineName
+  /** Maximum search results before rendering. */
   maxResults: number
+  /** Search request timeout in milliseconds. */
   timeoutMs: number
+  /** Fetch request timeout in milliseconds. */
+  fetchTimeoutMs: number
+  /** Maximum HTTP response bytes for either search or fetch. */
   maxResponseBytes: number
+  /** Maximum rendered web_fetch output characters. */
+  fetchMaxOutputChars: number
+  /** Bing settings. */
   bing: BingConfig
+  /** SearXNG settings. */
   searxng: SearxngConfig
 }
 

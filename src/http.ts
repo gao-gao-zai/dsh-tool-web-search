@@ -3,6 +3,9 @@ import { SearchError } from './types.js'
 /** Request options for the bounded HTTP helper. */
 export interface HttpRequestOptions {
   headers?: Record<string, string>
+  /** Human-readable endpoint label used in structured error messages. */
+  operation?: string
+  /** Caller cancellation and timeout signal. */
   signal: AbortSignal
   timeoutMs: number
   maxBytes: number
@@ -13,6 +16,7 @@ export interface HttpRequestOptions {
 export interface HttpResponse {
   status: number
   statusText: string
+  url: string
   headers: Headers
   body: string
 }
@@ -84,13 +88,14 @@ export async function getText(url: string, options: HttpRequestOptions): Promise
         signal: controller.signal,
       })
       const body = await readBoundedBody(response, options.maxBytes)
-      if (response.ok) return { status: response.status, statusText: response.statusText, headers: response.headers, body }
+      if (response.ok) return { status: response.status, statusText: response.statusText, url: response.url, headers: response.headers, body }
 
       const retryable = response.status === 408 || response.status === 429 || response.status >= 500
+      const endpoint = options.operation ?? 'search endpoint'
       if (!retryable || attempt >= retries) {
         throw new SearchError(
           response.status === 401 || response.status === 403 ? 'AUTHENTICATION_ERROR' : response.status === 429 ? 'RATE_LIMITED' : 'HTTP_ERROR',
-          `search endpoint returned HTTP ${response.status}`,
+          `${endpoint} returned HTTP ${response.status}`,
           retryable,
           response.status,
         )

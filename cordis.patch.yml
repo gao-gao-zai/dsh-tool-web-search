@@ -1,4 +1,5 @@
-# Keep the shipped `tool-web` row intact; this package uses a distinct model tool name.
+# The user must disable the shipped `tool-web` plugin before starting this replacement.
+# The rows below then provide the replacement web_search/web_fetch tools and the bundled Skill.
 - insert:
     - id: web-search
       name: '@linxin666/dsh-tool-web-search'

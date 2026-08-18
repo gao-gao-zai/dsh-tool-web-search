@@ -1,6 +1,9 @@
 /** Request options for the bounded HTTP helper. */
 export interface HttpRequestOptions {
     headers?: Record<string, string>;
+    /** Human-readable endpoint label used in structured error messages. */
+    operation?: string;
+    /** Caller cancellation and timeout signal. */
     signal: AbortSignal;
     timeoutMs: number;
     maxBytes: number;
@@ -10,6 +13,7 @@ export interface HttpRequestOptions {
 export interface HttpResponse {
     status: number;
     statusText: string;
+    url: string;
     headers: Headers;
     body: string;
 }

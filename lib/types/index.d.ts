@@ -10,10 +10,13 @@ export declare const WEB_SEARCH_SETTINGS_NAMESPACE: import("@deepseek-ai/dsh-set
 export declare const Config: z<Schemastery.ObjectS<{
     enabled: z<boolean, boolean>;
     announceToAgent: z<boolean, boolean>;
+    fetch: z<boolean, boolean>;
     engine: z<"bing" | "searxng", "bing" | "searxng">;
     maxResults: z<number, number>;
     timeoutMs: z<number, number>;
+    fetchTimeoutMs: z<number, number>;
     maxResponseBytes: z<number, number>;
+    fetchMaxOutputChars: z<number, number>;
     bing: z<Schemastery.ObjectS<{
         market: z<string, string>;
         setLang: z<string, string>;
@@ -41,10 +44,13 @@ export declare const Config: z<Schemastery.ObjectS<{
 }>, Schemastery.ObjectT<{
     enabled: z<boolean, boolean>;
     announceToAgent: z<boolean, boolean>;
+    fetch: z<boolean, boolean>;
     engine: z<"bing" | "searxng", "bing" | "searxng">;
     maxResults: z<number, number>;
     timeoutMs: z<number, number>;
+    fetchTimeoutMs: z<number, number>;
     maxResponseBytes: z<number, number>;
+    fetchMaxOutputChars: z<number, number>;
     bing: z<Schemastery.ObjectS<{
         market: z<string, string>;
         setLang: z<string, string>;

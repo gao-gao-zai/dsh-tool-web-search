@@ -5,6 +5,21 @@ bing-search-cli
   License: MIT
   Usage: protocol and HTML result parsing approach referenced; no source code is copied or bundled.
 
+web-tool fetch compatibility reference
+  Source: https://github.com/deepseek-ai/deepseek-harness/tree/main/packages/web/tool-web
+  License: MIT
+  Usage: `web_fetch` output contract and HTML-to-Markdown presentation were independently adapted from the official DSH tool.
+
+turndown
+  Source: https://github.com/mixmark-io/turndown
+  License: MIT
+  Usage: runtime HTML-to-Markdown conversion.
+
+@joplin/turndown-plugin-gfm
+  Source: https://github.com/laurent22/joplin/tree/master/packages/turndown-plugin-gfm
+  License: MIT
+  Usage: GitHub-flavored Markdown tables and strikethrough support.
+
 SearXNG
   Source: https://docs.searxng.org/
   License: AGPL-3.0
