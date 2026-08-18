@@ -8,11 +8,75 @@ This package exposes `web_search` and `web_fetch`. It fetches specific HTTP(S) r
 
 ## Install
 
-```sh
-dsh plugin --profile web add link:/absolute/path/to/WebSearch
+### Prerequisites
+
+- DSH with the `web` profile
+- Node.js 22 or newer
+- A writable DSH profile directory
+
+### Install from GitHub
+
+Install the public repository into the `web` profile:
+
+```powershell
+dsh plugin --profile web add github:gao-gao-zai/dsh-tool-web-search
 ```
 
-Before starting a session, disable the shipped official `tool-web` plugin in the DSH plugin/profile settings. The package patch cannot modify a shipped Agent preset after it is mounted. Then restart the profile. This package contributes replacement tools named `web_search` and `web_fetch`.
+The equivalent Git URL form is:
+
+```powershell
+dsh plugin --profile web add https://github.com/gao-gao-zai/dsh-tool-web-search.git
+```
+
+### Install a local checkout
+
+Use a `link:` dependency while developing or testing local changes:
+
+```powershell
+dsh plugin --profile web add link:E:\DeepSeekHarness\WebSearch
+```
+
+Use an absolute path on other machines. The package includes the prebuilt `lib/` bundle, so a link installation does not require a separate TypeScript build step.
+
+### Disable the official web tools
+
+This package intentionally uses the same model-facing names as the official DSH web tools: `web_search` and `web_fetch`. Disable the shipped `tool-web` row before creating a session with this replacement.
+
+Do not edit the shipped preset under the DSH installation directory. Instead, duplicate the active preset into the user preset directory and change only the copied row:
+
+```yaml
+- id: tool-web
+  name: '@deepseek-ai/dsh-tool-web'
+  disabled: true
+```
+
+Select that user-owned preset as the profile default. The exact DSH UI label may be `Agent Presets`, `Profiles`, or `Plugins` depending on the installed web UI version. The important result is that the effective preset contains `disabled: true` for `tool-web`.
+
+The package's `cordis.patch.yml` installs the replacement plugin and its bundled Agent Skill, but does not modify a shipped preset after the preset layer is mounted.
+
+### Restart and verify
+
+Restart the profile after installation and create a **new Agent session**. Existing sessions keep the preset composition they were created with.
+
+```powershell
+# Stop the existing dsh web process with Ctrl+C, then run:
+dsh web
+```
+
+The new session should expose these two tools:
+
+```text
+web_search
+web_fetch
+```
+
+`web_search` should accept `query`, `limit`, and `language`. `web_fetch` should accept one HTTP(S) `url`. A quick fetch smoke test is:
+
+```text
+web_fetch({"url":"https://example.com/"})
+```
+
+The result should contain a `Fetched https://example.com/ (HTTP 200)` heading and Markdown body content.
 
 ## Configuration
 
