@@ -54,6 +54,10 @@ The API key is resolved per request through DSH credentials, with an environment
 
 See `docs/requirements.md` for the complete requirements and acceptance criteria.
 
+## License
+
+This project is licensed under the MIT License. See `LICENSE` for the full text and `NOTICE` for third-party references.
+
 ## Agent Skill
 
 The package also bundles `skills/web-search-operations/SKILL.md`. Its profile patch adds a private Skill filesystem provider for that directory, so the Agent receives operational guidance about result limits, Bing/SearXNG configuration, credential references, and error handling without replacing project or user Skill roots.
