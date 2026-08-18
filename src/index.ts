@@ -40,7 +40,7 @@ export const Config = z.object({
   }).default({ baseUrl: '', apiKeyRef: 'SEARXNG_API_KEY', apiKeyHeader: 'Authorization', apiKeyPrefix: 'Bearer ', engines: [], categories: [] }),
 })
 
-const SEARCH_GUIDANCE = 'Use web_search to find current information. It returns only page titles, URLs, and search-engine snippets, never webpage content. Respect the result and output limits, and cite relevant URLs as markdown links.'
+const SEARCH_GUIDANCE = 'Use web_search_configured to find current information through the configured Bing or SearXNG backend. It returns only page titles, URLs, and search-engine snippets, never webpage content. Respect the result and output limits, and cite relevant URLs as markdown links.'
 
 const DEFAULT_CONFIG: WebSearchConfig = {
   enabled: true,
@@ -153,8 +153,8 @@ async function executeSearch(config: WebSearchConfig, args: unknown, signal: Abo
 /** Register the model-facing search tool for one settings snapshot. */
 function registerTool(ctx: any, config: WebSearchConfig, resolveApiKey: () => Promise<string | undefined>): () => void {
   return ctx.tools.register(defineTool({
-    name: 'web_search',
-    description: 'Search Bing or SearXNG for current information. Returns only titles, URLs, and short snippets; it does not fetch webpage content.',
+    name: 'web_search_configured',
+    description: 'Search Bing or SearXNG for current information through the configured backend. Returns only titles, URLs, and short snippets; it does not fetch webpage content.',
     parameters: {
       query: { type: 'string', required: true, description: 'Search keywords.' },
       limit: { type: 'integer', description: 'Maximum results, from 1 to 10. Defaults to 10.' },

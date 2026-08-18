@@ -4,7 +4,7 @@ Persistent Host-side DSH tool that searches Bing or SearXNG and returns only bou
 
 ## Scope
 
-This package exposes `web_search` only. It does not fetch result pages, return webpage content, download images, or depend on `turndown`.
+This package exposes `web_search_configured` only. It does not fetch result pages, return webpage content, download images, or depend on `turndown`.
 
 ## Install
 
@@ -12,7 +12,7 @@ This package exposes `web_search` only. It does not fetch result pages, return w
 dsh plugin --profile web add link:/absolute/path/to/WebSearch
 ```
 
-Restart the profile after installation. The package patch disables the built-in `tool-web` row so the two tools do not register under the same name. This package contributes only `web_search`; `web_fetch` is intentionally absent.
+Restart the profile after installation. The package contributes `web_search_configured`, a separate tool that uses this plugin's Bing/SearXNG settings and avoids colliding with the built-in `web_search`. `web_fetch` is intentionally absent.
 
 ## Configuration
 

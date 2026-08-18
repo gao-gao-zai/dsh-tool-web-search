@@ -1,15 +1,15 @@
 ---
 name: web-search-operations
-description: Use when deciding how to operate the web_search tool, interpret its bounded results, configure search limits, or configure the Bing and SearXNG backends for this DSH plugin.
+description: Use when deciding how to operate the web_search_configured tool, interpret its bounded results, configure search limits, or configure the Bing and SearXNG backends for this DSH plugin.
 ---
 
 # Web Search Operations
 
-Use this skill together with the `web_search` tool. The tool description defines the callable arguments; this skill defines the operational rules and persistent configuration that do not fit into the tool schema.
+Use this skill together with the `web_search_configured` tool. The tool description defines the callable arguments; this skill defines the operational rules and persistent configuration that do not fit into the tool schema.
 
 ## What The Tool Returns
 
-`web_search` returns only a bounded list of:
+`web_search_configured` returns only a bounded list of:
 
 - `title`: the search result title;
 - `url`: the source URL;
@@ -41,7 +41,7 @@ Use `limit` between 1 and 10. For broad research, run several focused queries ra
 
 ## Persistent Configuration
 
-Engine and limit settings are plugin settings, not `web_search` arguments. The settings namespace is `dsh-web-search`.
+Engine and limit settings are plugin settings, not `web_search_configured` arguments. The settings namespace is `dsh-web-search`.
 
 ### Bing (default)
 
@@ -84,7 +84,7 @@ The instance must expose a JSON search endpoint at:
 
 `apiKeyRef` is a credential reference, normally an environment-style name such as `SEARXNG_API_KEY`; it is not the secret value itself. The plugin resolves the credential for each request. Never put the raw API key in:
 
-- `web_search` arguments;
+- `web_search_configured` arguments;
 - the `baseUrl` or query string;
 - a committed YAML file;
 - a prompt, response, or log message.
@@ -117,4 +117,4 @@ Do not expose secrets while explaining an error. Report the error code and the s
 
 ## Configuration Boundary
 
-The Agent can select query, `limit`, and `language` within the tool schema. It cannot change the backend, increase output limits, or write credentials through `web_search`. Backend changes and credential updates belong to the DSH settings/configuration surface and take effect on subsequent calls.
+The Agent can select query, `limit`, and `language` within the tool schema. It cannot change the backend, increase output limits, or write credentials through `web_search_configured`. Backend changes and credential updates belong to the DSH settings/configuration surface and take effect on subsequent calls.

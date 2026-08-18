@@ -6,12 +6,12 @@
 
 本期只实现搜索能力：
 
-1. **搜索工具 `web_search`**：提交关键词，返回可能存在答案的网页标题、链接和简介。
+1. **搜索工具 `web_search_configured`**：提交关键词，返回可能存在答案的网页标题、链接和简介。
 2. **不实现网页爬取**：不抓取搜索结果网页正文，不提供 `web_fetch`，不下载或解析图片，不引入 `turndown`。
 
 插件是 DSH 的持久化扩展，应作为正式 Host 插件随 profile 加载，而不是当前会话中的临时动态 Cordis Plugin。
 
-## 2. 搜索工具 `web_search`
+## 2. 搜索工具 `web_search_configured`
 
 ### 2.1 输入
 
@@ -166,13 +166,13 @@ SearXNG 本身为 AGPL-3.0 软件，本插件只作为 API 客户端调用，不
 
 ## 6. 持久化插件与工具冲突处理
 
-当前 DSH 官方 `@deepseek-ai/dsh-tool-web` 已注册同名 `web_search` 和 `web_fetch`。新插件不能与官方工具行并存。
+当前 DSH 官方 `@deepseek-ai/dsh-tool-web` 已注册 `web_search` 和 `web_fetch`。由于 shipped Agent preset 在插件 bundle 之后加载，本插件不尝试覆盖官方工具，而是使用独立名称 `web_search_configured`。
 
 新插件包的 `cordis.patch.yml` 应：
 
-1. 按 ID 禁用官方 `tool-web` 行；
-2. 插入新插件行；
-3. 确保工具列表中只出现一个新的 `web_search`，不存在 `web_fetch`；
+1. 保留官方 `tool-web` 行不变；
+2. 插入新插件行和插件内 Skill provider；
+3. 确保自定义工具 `web_search_configured` 可以单独调用，且不存在自定义 `web_fetch`；
 4. 不修改 DSH 安装目录中的 shipped preset；
 5. 独立安装和全家桶安装均可加载。
 
@@ -218,12 +218,12 @@ SearXNG 本身为 AGPL-3.0 软件，本插件只作为 API 客户端调用，不
 - `enabled: false` 时不注册工具；
 - Bing 不依赖 credentials 服务即可运行；
 - SearXNG 缺少凭据时返回结构化错误；
-- 官方 `tool-web` 被 patch 禁用后不会发生重复注册；
+- 自定义 `web_search_configured` 能与官方 `web_search` 共存且不会重复注册；
 - 独立包和聚合包都能通过 profile mount、typecheck、test 和 build。
 
 ## 10. 验收标准
 
-- [ ] 只有 `web_search` 工具，没有 `web_fetch`；
+- [ ] 只有 `web_search_configured` 工具，没有 `web_fetch`；
 - [ ] Bing 后端可用并返回标题、URL、简介；
 - [ ] SearXNG 后端可配置并使用凭据引用；
 - [ ] 搜索工具不访问搜索结果网页正文；
