@@ -270,6 +270,7 @@ export function apply(ctx: any, entry?: Partial<WebSearchConfig>): void {
   }
 
   installSettingsSection(ctx, WEB_SEARCH_SETTINGS_NAMESPACE, Config, entry ?? {}, {
+    validate: (value: Partial<WebSearchConfig>) => assertConfig(completeConfig(value)),
     setSource: (source: () => WebSearchConfig) => {
       current = source
       sync()

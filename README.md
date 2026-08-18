@@ -78,6 +78,26 @@ web_fetch({"url":"https://example.com/"})
 
 The result should contain a `Fetched https://example.com/ (HTTP 200)` heading and Markdown body content.
 
+## Configure In DSH Web UI
+
+The plugin registers the DSH settings namespace `dsh-web-search` with `installSettingsSection`, so its settings are editable from the Web UI settings surface. No custom frontend page or hand-written YAML is required.
+
+Open the settings panel for `dsh-web-search` and edit:
+
+- `enabled`: enable or disable both replacement tools;
+- `announceToAgent`: enable or disable the operational system-prompt guidance;
+- `fetch`: enable or disable `web_fetch`;
+- `engine`: choose `bing` or `searxng`;
+- `maxResults`: integer from 1 to 10;
+- `timeoutMs`: positive search timeout in milliseconds;
+- `fetchTimeoutMs`: positive fetch timeout in milliseconds;
+- `maxResponseBytes`: positive network response byte cap;
+- `fetchMaxOutputChars`: positive rendered fetch output cap;
+- `bing`: market, language, and optional User-Agent;
+- `searxng`: base URL, credential reference, authentication header/prefix, engines, and categories.
+
+Invalid values are rejected by the DSH settings validator before they are persisted. SearXNG secrets themselves belong in the DSH credentials UI; only `apiKeyRef` is stored in this settings namespace.
+
 ## Configuration
 
 The plugin uses the `dsh-web-search` settings namespace. The default engine is Bing:
