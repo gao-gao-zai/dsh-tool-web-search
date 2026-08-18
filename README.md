@@ -48,3 +48,7 @@ The API key is resolved per request through DSH credentials, with an environment
 - Oversized responses are truncated or rejected before parsing.
 
 See `docs/requirements.md` for the complete requirements and acceptance criteria.
+
+## Agent Skill
+
+The package also bundles `skills/web-search-operations/SKILL.md`. Its profile patch adds a private Skill filesystem provider for that directory, so the Agent receives operational guidance about result limits, Bing/SearXNG configuration, credential references, and error handling without replacing project or user Skill roots.

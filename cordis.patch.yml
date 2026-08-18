@@ -1,5 +1,16 @@
+# Disable the built-in web tool row because this package owns web_search.
 - id: tool-web
   disabled: true
+
+# Add this package's bundled Agent Skill without replacing project/user Skill roots.
+# `baseUrl` resolves to the package directory while the bundle patch is loaded.
 - insert:
     - id: web-search
       name: '@linxin666/dsh-tool-web-search'
+    - id: web-search-skills
+      name: '@deepseek-ai/dsh-skill-filesystem'
+      config:
+        providerName: web-search
+        includeDefaultRoots: false
+        customSkillDirs:
+          - !!js "process.getBuiltinModule('node:url').fileURLToPath(new URL('skills/', baseUrl))"
