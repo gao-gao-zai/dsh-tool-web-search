@@ -1,0 +1,5 @@
+- id: tool-web
+  disabled: true
+- insert:
+    - id: web-search
+      name: '@linxin666/dsh-tool-web-search'

@@ -1,119 +1,234 @@
-# 网络搜索持久化插件（Web Search Plugin）需求文档
+# 网络搜索持久化插件需求文档
 
 ## 1. 概述
 
-本插件为 DeepSeek Harness（DSH）提供两个模型工具，使 Agent 具备联网搜索与网页内容获取能力：
+本插件为 DeepSeek Harness（DSH）提供一个模型工具，使 Agent 能够通过配置的搜索引擎发现当前网页信息。
 
-1. **搜索工具（Search）**：将关键词提交给配置的搜索引擎，返回可能存在答案的网页链接及其简介；**不包含页面实际内容**。
-2. **网页爬取工具（Fetch / Crawl）**：将指定网页抓取并转换为 Markdown 格式返回；**不解析图像资源**。
+本期只实现搜索能力：
 
-插件意图为**持久化插件**：即作为 DSH 的正式扩展（agent preset / host 组成的插件行），随 DSH 一起被加载与维护，而不是本会话中临时的动态 Cordis Plugin。持久化实现归属位置说明见 [§7 持久化归属](#7-持久化归属与交付物)。
+1. **搜索工具 `web_search`**：提交关键词，返回可能存在答案的网页标题、链接和简介。
+2. **不实现网页爬取**：不抓取搜索结果网页正文，不提供 `web_fetch`，不下载或解析图片，不引入 `turndown`。
 
-## 2. 工具职责划分
+插件是 DSH 的持久化扩展，应作为正式 Host 插件随 profile 加载，而不是当前会话中的临时动态 Cordis Plugin。
 
-### 2.1 搜索工具 `web_search`
+## 2. 搜索工具 `web_search`
 
-| 项 | 说明 |
-| --- | --- |
-| 输入 | `query`（字符串，必填，搜索关键词）；可选 `limit`（返回结果条数上限）、`language`（语言/市场） |
-| 输出 | 结构化结果数组：`{ title, url, snippet }` |
-| 约束 | **只返回链接和简介（snippet）**，不抓取、不返回页面正文内容；正文获取由爬取工具负责 |
-| 行为 | 可配置使用 **Bing 搜索** 或 **SearXNG**（见 §3） |
+### 2.1 输入
 
-> 注意：本插件的搜索工具输出是「链接 + 简介」，与 DSH 内置的不带工具、仅由检索服务提供摘要的搜索不同——本插件将搜索能力**以模型 Tool 的形式**暴露给 Agent。
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `query` | `string` | 必填，搜索关键词，去除首尾空白后不可为空 |
+| `limit` | `integer` | 可选，返回结果条数，默认 10，最大 10 |
+| `language` | `string` | 可选，语言或市场代码，如 `zh-CN`、`en-US` |
 
-### 2.2 网页爬取工具 `web_fetch`
+### 2.2 输出
 
-| 项 | 说明 |
-| --- | --- |
-| 输入 | `url`（字符串，必填，目标网页地址）；可选 `maxLength`（返回正文长度上限，防止超长页面溢出上下文） |
-| 输出 | `{ url, title, markdown }` |
-| 约束 | 将 HTML 转换为 **Markdown（GitHub Flavored 风格）**；**不包含、不下载、不解析任何图像资源**（图片链接在 Markdown 中原样保留或按配置移除均可，但绝不抓取图片二进制） |
-| 实现建议 | 使用 [`turndown`](https://www.npmjs.com/package/turndown)（MIT License）作为 HTML→Markdown 转换核心 |
+成功结果的结构为：
+
+```json
+{
+  "results": [
+    {
+      "title": "网页标题",
+      "url": "https://example.com/article",
+      "snippet": "搜索引擎提供的网页简介"
+    }
+  ],
+  "truncated": false
+}
+```
+
+失败结果使用结构化错误：
+
+```json
+{
+  "results": [],
+  "truncated": false,
+  "error": {
+    "code": "TIMEOUT",
+    "message": "search request timed out",
+    "retryable": true
+  }
+}
+```
+
+### 2.3 约束
+
+- 只返回标题、URL 和搜索引擎提供的简介；
+- 不请求搜索结果网页，不返回网页正文；
+- 不返回原始 HTML、原始 JSON、搜索引擎内部字段或调试数据；
+- 搜索失败、配置错误、限流、超时和响应格式错误应转换为结构化错误，不抛出未处理异常打断 Agent。
 
 ## 3. 搜索引擎配置
 
-插件需支持两种搜索引擎后端，通过配置切换：
+插件支持 Bing 和 SearXNG 两种后端，通过配置切换：
 
-### 3.1 Bing 搜索（默认，零配置可选）
+```ts
+interface WebSearchConfig {
+  enabled: boolean
+  announceToAgent: boolean
+  engine: 'bing' | 'searxng'
+  maxResults: number
+  timeoutMs: number
+  maxResponseBytes: number
+  bing: {
+    market: string
+    setLang?: string
+    userAgent?: string
+  }
+  searxng: {
+    baseUrl: string
+    apiKeyRef?: string
+    apiKeyHeader?: string
+    apiKeyPrefix?: string
+    engines?: string[]
+    categories?: string[]
+  }
+}
+```
 
-参考项目：https://github.com/AusertDream/bing-search-cli（MIT License）
+### 3.1 Bing
 
-- 原理：直接请求 Bing 公开 HTML 搜索页（`https://www.bing.com/search?q=...`），解析结果 DOM，解码 Bing 跳转链接（`https://www.bing.com/ck/a?...`）还原真实 URL。
-- 特点：
-  - **无需 API Key**，无需注册；
-  - 无内置速率限制（但应内置合理的请求节流 / 重试，避免被封）；
-  - 中文查询可切换到 `zh-CN` 市场（`setlang` / `mkt` 参数）。
-- 实现要点（借鉴 `bing-search-cli`，**仅借鉴思路与协议解析，不直接复制其代码**，MIT 协议下引用需保留版权声明）：
-  1. 请求 `https://www.bing.com/search?q={query}&mkt={market}&setlang={lang}`，带合理的 `User-Agent`；
-  2. 用 HTML 解析（如 `parse5` / `cheerio`）定位搜索结果条目（`li.b_algo`）；
-  3. 提取 `h2 > a` 的标题与链接，解码 `ck/a` 跳转；提取摘要文本（`p` / `.b_caption`）；
-  4. 跨结果去重（按域名 + 标题）。
-- 配置项：
-  - `engine: "bing"`
-  - `bing.market`：市场代码，默认 `zh-CN`（中文）或 `en-US`；
-  - `bing.setLang`：界面语言；
-  - `bing.userAgent`：自定义 UA（可选）；
-  - `bing.proxy`：可选代理（兼容 `HTTPS_PROXY` / `HTTP_PROXY` 环境变量）。
+参考项目：https://github.com/AusertDream/bing-search-cli（MIT License）。
 
-### 3.2 SearXNG（需自建实例 + API）
+实现要求：
 
-- 原理：调用自建的 [SearXNG](https://docs.searxng.org/) 实例的 JSON API（`/search?q=...&format=json`），聚合多引擎结果。
-- **必须配置**：
-  - `searxng.url`：SearXNG 实例地址（如 `https://searx.example.com`）；
-  - `searxng.apiKey`：实例配置的 API 密钥（若实例启用了 `limiter` / 认证）。
-- 可选：`searxng.engines`（限定引擎）、`searxng.categories`。
-- 注意：SearXNG 本身是 AGPL-3.0 协议的开源软件，但**本插件只是其 API 的客户端**，不包含 SearXNG 代码；若用户自建 SearXNG 实例，实例本身遵循其 AGPL-3.0 协议，与本插件的协议无关。
+- 请求 Bing 公开 HTML 搜索页，例如 `https://www.bing.com/search?q=...`；
+- 使用 URL 参数传递关键词、市场和界面语言；
+- 设置合理的 `User-Agent` 和 `Accept` 请求头；
+- 解析搜索结果条目，提取标题、真实目标 URL 和摘要文本；
+- 解码 Bing `ck/a` 等跳转链接，无法可靠解码时丢弃结果；
+- 按 URL、域名和标题去重；
+- 中文查询支持 `zh-CN` 市场，英文查询支持 `en-US` 市场；
+- 参考其协议解析思路但不直接复制源码；若复制或改编代码，必须保留 MIT 版权声明。
 
-## 4. 爬取工具实现要点
+建议使用受维护的 HTML 解析器解析搜索结果页，不使用正则表达式直接解析完整 HTML。
 
-- 使用 `turndown`（MIT）作 HTML→Markdown 核心。`TurndownService` 的 `turndown(html)` 转换页面主体 HTML。
-- 前置处理：
-  1. 发起请求（遵循 robots 的谨慎原则：可设 UA、限频）；
-  2. 根据 `Content-Type` 处理字符集（`utf-8` 为主；必要时按 `meta charset` / `Content-Type` 解码）；
-  3. 提取 `<title>`；剥离 `<script>`、`<style>`、`<nav>`、`<footer>`、`<header>` 等噪音节点（可用 `turndown` 的 `remove` 规则或先剪 DOM）；
-  4. 相对链接（`href`/`src`）解析为绝对 URL（基于页面 URL）；
-- 图像处理：
-  - **不下载、不解析任何图像资源**；
-  - Markdown 中的图片语法（`![alt](url)`）可保留（保留的是图片 URL 而非图片内容），方便阅读；若版权/带宽考虑，也可提供 `stripImages: true` 配置项将图片全部移除。
-- 返回长度控制：超过 `maxLength` 截断（建议同时截掉未闭合的 Markdown 结构）。
+### 3.2 SearXNG
 
-## 5. 依赖与开源协议合规
+调用自建 SearXNG 实例的 JSON API：
+
+```text
+GET {baseUrl}/search?q={query}&format=json
+```
+
+实现要求：
+
+- `baseUrl` 必须是合法的 HTTP(S) 地址；
+- 支持附加语言、引擎和分类参数；
+- 使用配置的 API 凭据访问实例；API key 只放在请求 Header，不放入 URL；
+- 配置只保存 `apiKeyRef` 等凭据引用，实际 key 通过 DSH credentials 服务按调用解析；
+- 将 `results[].title`、`results[].url`、`results[].content` 映射为统一的标题、链接和简介；
+- 不返回 SearXNG 原始结果中的引擎、分类、评分或其他内部字段；
+- 对空 URL、非 HTTP(S) URL、缺失字段和无效 JSON 进行过滤或结构化报错。
+
+SearXNG 本身为 AGPL-3.0 软件，本插件只作为 API 客户端调用，不包含 SearXNG 源码。
+
+## 4. 返回长度与 Token 限制
+
+限制必须在引擎结果规范化阶段和最终工具渲染阶段执行，不能只依赖提示文本或前端显示：
+
+- 默认返回结果不超过 10 条，用户传入的 `limit` 不得超过 10；
+- 每条 `snippet` 不超过 200 个 Unicode 字符；
+- `title` 设置独立长度上限，建议不超过 300 个 Unicode 字符；
+- URL 设置合理上限，超长或无效 URL 丢弃；
+- 最终模型可见工具输出总长度不得超过 16K 字符；
+- 超过总长度时丢弃后续结果并设置 `truncated: true`；
+- 错误信息也必须经过长度限制；
+- 限制逻辑必须有测试，保证异常长搜索结果不会突破硬上限。
+
+## 5. HTTP、超时与错误处理
+
+统一 HTTP 层负责：
+
+- 传递 DSH 工具调用的取消信号；
+- 使用 `timeoutMs` 实现合作式超时；
+- 限制响应体最大字节数，避免无界读取；
+- 只对网络错误、408、429 和 5xx 等可重试情况进行少量退避重试；
+- 4xx 配置或鉴权错误不自动重试；
+- 请求取消后等待自身资源清理完成；
+- 日志只记录后端、状态码、耗时和错误代码，不记录 API key、完整 Header 或完整响应。
+
+错误代码建议包括：
+
+- `INVALID_QUERY`
+- `INVALID_CONFIG`
+- `MISSING_CREDENTIAL`
+- `HTTP_ERROR`
+- `AUTHENTICATION_ERROR`
+- `RATE_LIMITED`
+- `TIMEOUT`
+- `RESPONSE_TOO_LARGE`
+- `INVALID_RESPONSE`
+- `NO_RESULTS`
+- `CANCELLED`
+- `INTERNAL_ERROR`
+
+## 6. 持久化插件与工具冲突处理
+
+当前 DSH 官方 `@deepseek-ai/dsh-tool-web` 已注册同名 `web_search` 和 `web_fetch`。新插件不能与官方工具行并存。
+
+新插件包的 `cordis.patch.yml` 应：
+
+1. 按 ID 禁用官方 `tool-web` 行；
+2. 插入新插件行；
+3. 确保工具列表中只出现一个新的 `web_search`，不存在 `web_fetch`；
+4. 不修改 DSH 安装目录中的 shipped preset；
+5. 独立安装和全家桶安装均可加载。
+
+插件为 Host-only，不声明 Client half。工具注册、system prompt 和设置监听器必须绑定当前 Fiber，在停止、更新和卸载时自动清理。
+
+## 7. 配置与秘密
+
+- 使用 DSH settings namespace 持久化配置；
+- `engine` 为 `bing` 时使用 Bing 配置；为 `searxng` 时校验 SearXNG 地址和凭据引用；
+- SearXNG API key 不以明文写入普通 settings 文档；
+- API key 通过 `apiKeyRef` 指向 credentials 服务中的环境变量或其他凭据源；
+- 每次搜索重新解析凭据，使凭据变化无需重启即可生效；
+- 凭据缺失时返回 `MISSING_CREDENTIAL`，不发起 SearXNG 请求；
+- 错误、日志和工具输出中不得泄露 API key。
+
+## 8. 依赖与许可证合规
 
 | 项目 | 用途 | 协议 | 合规要求 |
 | --- | --- | --- | --- |
-| [bing-search-cli](https://github.com/AusertDream/bing-search-cli) | Bing 搜索协议参考（参考设计，非直接依赖） | MIT | 若复制其代码或显著借鉴实现，需在 NOTICE/依赖清单中保留其版权声明（Copyright (c) 2026 AusertDream） |
-| [turndown](https://www.npmjs.com/package/turndown) | HTML→Markdown 转换（运行时依赖） | MIT | 在 package.json 声明依赖并保留版权/许可声明 |
-| [SearXNG](https://docs.searxng.org/) | 可选搜索后端（仅 API 客户端，非本插件代码） | AGPL-3.0 | 本插件不含其代码；自建实例者自行遵守 AGPL-3.0 |
+| `bing-search-cli` | Bing 搜索协议解析参考，非运行时依赖 | MIT | 仅参考思路；若复制或改编代码，保留版权声明 |
+| HTML 解析器 | 解析 Bing HTML 搜索结果 | 以实际依赖为准 | 引入前检查协议并记录在依赖清单 |
+| SearXNG | 可选搜索后端，仅通过 API 调用 | AGPL-3.0 | 本插件不包含其源码，自建实例方负责遵守其协议 |
 
-合规原则：
+本插件自身建议采用 MIT License。由于本期不进行网页转换，不引入 `turndown` 或 `@types/turndown`。
 
-- 插件自身需要一个开源协议（建议 MIT，与参考项目一致）；
-- 运行时依赖 `turndown`（MIT）无传染性，可安心引用；
-- 若借鉴 `bing-search-cli` 源码，遵守 MIT 的「保留版权声明」要求：在仓库中放置 `NOTICE` 或 `licenses/THIRD_PARTY_NOTICES` 文件列明来源。
+## 9. 测试要求
 
-## 6. 其他需求
+### 单元测试
 
-- **持久化**：作为持久化插件安装到 DSH（见 §7），随 DSH 启动加载；工具存在运行时错误需要有日志与可控降级（如 Bing 被封时提示切换 SearXNG）。
-- **错误处理**：搜索失败（网络错误、无结果、被限流）返回结构化错误信息，不抛出异常打断 Agent。
-- **配置管理**：引擎选择与各引擎参数通过 DSH 配置（env / yml / 插件 settings）提供；密钥类配置（如 SearXNG API Key）建议走 DSH 凭据体系保存，避免明文入库。
-- **Token 意识**：工具输出必须限制在合理长度内，避免超出模型上下文窗口。搜索工具限制返回结果条数（默认 ≤ 10 条），每条摘要 ≤ 200 字，且总输出严格限制在 16K 字符以内。爬取工具返回的 Markdown 正文必须受 `maxLength` 参数控制（默认 ≤ 64K 字符），超出部分截断，且截断时尽量保持 Markdown 结构完整。
+- query 和 limit 参数校验；
+- Bing URL 参数编码、市场/语言映射和跳转链接解码；
+- Bing HTML fixture 解析、摘要清理、空结果和去重；
+- SearXNG JSON 映射、缺失字段、空结果和错误响应；
+- URL、标题、摘要清理与长度限制；
+- 最终输出不超过 16K 字符；
+- HTTP 状态码、超时、取消、响应体过大和重试映射；
+- API key 只出现在请求 Header，不出现在 URL、日志和输出；
+- 配置与凭据变更影响下一次调用。
 
-## 7. 持久化归属与交付物
+### 集成测试
 
-该插件是 DSH 的**持久化扩展**（非会话级动态插件）。持久化归属与交付物：
+- 工具注册、执行和 disposer 清理；
+- `enabled: false` 时不注册工具；
+- Bing 不依赖 credentials 服务即可运行；
+- SearXNG 缺少凭据时返回结构化错误；
+- 官方 `tool-web` 被 patch 禁用后不会发生重复注册；
+- 独立包和聚合包都能通过 profile mount、typecheck、test 和 build。
 
-1. **插件代码**：放入 DSH 插件全家桶仓库（类似 `dsh-ssh`、`dsh-task-board` 的组织方式），经聚合包一键安装；
-2. **Agent preset / 工具注册**：插件以 Host 插件行的方式注册两个模型 Tool（`web_search`、`web_fetch`）到 DSH runtime，使 AGENT 可用；
-3. **配置**：引擎选择与参数（Bing market / SearXNG URL + API Key）在插件配置中声明；
-4. **文档**：README（安装、配置、使用示例、协议合规说明）；
-5. **测试**：引擎选择、结果解析、Markdown 转换的单元测试。
+## 10. 验收标准
 
-## 8. 验收标准
-
-- [ ] `web_search`：输入关键词 → 返回 `[{ title, url, snippet }]`，无正文内容；
-- [ ] Bing 与 SearXNG 双后端可配置切换；
-- [ ] `web_fetch`：输入 URL → 返回 Markdown 正文，无图像资源被抓取；
-- [ ] 非 HTML 内容（PDF、图片、二进制）给出明确错误或降级提示；
-- [ ] 包含 MIT 协议声明与第三方依赖（turndown、bing-search-cli）合规说明；
-- [ ] 插件可持久化安装并在 DSH 重启后依然可用。
+- [ ] 只有 `web_search` 工具，没有 `web_fetch`；
+- [ ] Bing 后端可用并返回标题、URL、简介；
+- [ ] SearXNG 后端可配置并使用凭据引用；
+- [ ] 搜索工具不访问搜索结果网页正文；
+- [ ] 默认最多 10 条结果，摘要最多 200 字符，总输出最多 16K 字符；
+- [ ] 超时、限流、鉴权失败和无效响应返回结构化错误；
+- [ ] API key 不会出现在日志、URL 或工具输出；
+- [ ] 包含 MIT License 和第三方依赖协议说明；
+- [ ] 插件可持久化安装，并在 DSH 重启后继续可用。

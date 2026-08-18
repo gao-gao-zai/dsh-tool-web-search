@@ -1,0 +1,11 @@
+THIRD-PARTY REFERENCES
+
+bing-search-cli
+  Source: https://github.com/AusertDream/bing-search-cli
+  License: MIT
+  Usage: protocol and HTML result parsing approach referenced; no source code is copied or bundled.
+
+SearXNG
+  Source: https://docs.searxng.org/
+  License: AGPL-3.0
+  Usage: accessed as an external HTTP API; SearXNG source code is not bundled.
