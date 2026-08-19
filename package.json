@@ -1,5 +1,5 @@
 {
-  "name": "@linxin666/dsh-tool-web-search",
+  "name": "@gao-gao-zai/dsh-tool-web-search",
   "description": "Persistent DSH model tools for Bing and SearXNG web search plus bounded webpage fetching.",
   "version": "0.1.0",
   "type": "module",
