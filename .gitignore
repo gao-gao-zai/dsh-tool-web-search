@@ -1,3 +1,5 @@
 node_modules/
 coverage/
 *.tsbuildinfo
+.tmp-client/
+lib/.client-build/

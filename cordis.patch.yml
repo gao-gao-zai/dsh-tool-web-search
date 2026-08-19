@@ -2,7 +2,7 @@
 # The rows below then provide the replacement web_search/web_fetch tools and the bundled Skill.
 - insert:
     - id: web-search
-      name: '@gao-gao-zai/dsh-tool-web-search'
+      name: 'dsh-tool-web-search'
     - id: web-search-skills
       name: '@deepseek-ai/dsh-skill-filesystem'
       config:

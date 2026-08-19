@@ -1,5 +1,5 @@
 {
-  "name": "@gao-gao-zai/dsh-tool-web-search",
+  "name": "dsh-tool-web-search",
   "description": "Persistent DSH model tools for Bing and SearXNG web search plus bounded webpage fetching.",
   "version": "0.1.0",
   "type": "module",
@@ -19,7 +19,7 @@
     },
     "./client": {
       "types": "./lib/types/client.d.ts",
-      "default": "./lib/client.mjs"
+      "default": "./lib/client.js"
     },
     "./src/*": "./src/*",
     "./package.json": "./package.json"
@@ -92,8 +92,9 @@
     "vitest": "^3.0.0"
   },
   "scripts": {
-    "build": "tsdown && tsc -p tsconfig.build.json",
-    "bundle": "tsdown",
+    "build": "tsdown && tsc -p tsconfig.build.json && pnpm run build:client",
+    "build:client": "tsdown src/client.ts --no-config --format cjs --out-dir lib/.client-build --sourcemap --platform browser --deps.never-bundle react --deps.never-bundle @deepseek-ai/dsh-client-runtime --deps.never-bundle @deepseek-ai/dsh-client-ui-settings --deps.never-bundle @deepseek-ai/dsh-client-ui-slots && node scripts/wrap-client.mjs",
+    "bundle": "pnpm run build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"

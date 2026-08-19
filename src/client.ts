@@ -1,5 +1,4 @@
 import React from 'react'
-import type { SettingsScope } from '@deepseek-ai/dsh-client-runtime/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-slots'
 
@@ -37,9 +36,16 @@ const DEFAULTS = {
 }
 
 const styles = {
-  card: { border: '1px solid var(--dsw-alias-border-l2)', borderRadius: 8, padding: 16, display: 'grid', gap: 14 },
-  title: { margin: 0, fontSize: 16, fontWeight: 600 },
-  description: { margin: 0, color: 'var(--dsw-alias-label-tertiary)', fontSize: 13 },
+  card: { border: '1px solid var(--dsw-alias-border-l2)', borderRadius: 8, background: 'var(--dsw-alias-bg-layer-3)', overflow: 'hidden' },
+  cardOpen: { background: 'var(--dsw-alias-bg-layer-2)', borderColor: 'var(--dsw-alias-label-dimmed)' },
+  header: { appearance: 'none', width: '100%', boxSizing: 'border-box', font: 'inherit', color: 'inherit', textAlign: 'left', cursor: 'pointer', background: 'transparent', border: 0, display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px' },
+  headText: { display: 'flex', flexDirection: 'column', flex: 1, gap: 4, minWidth: 0 },
+  title: { margin: 0, color: 'var(--dsw-alias-label-primary)', fontSize: 15, fontWeight: 600, lineHeight: 1.4 },
+  description: { margin: 0, color: 'var(--dsw-alias-label-tertiary)', fontSize: 13, lineHeight: 1.5 },
+  chevron: { color: 'var(--dsw-alias-label-tertiary)', flex: 'none', fontSize: 18, lineHeight: 1, transition: 'transform .16s' },
+  chevronOpen: { transform: 'rotate(180deg)' },
+  pending: { whiteSpace: 'nowrap', background: 'var(--dsw-alias-bg-module-platform)', color: 'var(--dsw-alias-label-secondary)', borderRadius: 999, padding: '1px 8px', fontSize: 11, fontWeight: 500, lineHeight: '17px', flex: 'none' },
+  body: { borderTop: '1px solid var(--dsw-alias-border-l2)', margin: '0 16px', padding: '14px 0 8px', display: 'grid', gap: 14 },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 },
   field: { display: 'grid', gap: 5 },
   label: { fontSize: 13, fontWeight: 500 },
@@ -89,12 +95,17 @@ function WebSearchSettingsCard(props: { scope: WebSearchSettingsScope }) {
   const { scope } = props
   const snapshot = scope.getSnapshot()
   const [draft, setDraft] = React.useState(() => mergeConfig(snapshot.value))
+  const [open, setOpen] = React.useState(false)
+  const [dirty, setDirty] = React.useState(false)
   const [status, setStatus] = React.useState('')
   const [error, setError] = React.useState('')
 
   React.useEffect(() => scope.subscribe(() => {
     const next = scope.getSnapshot()
-    if (next.value) setDraft(mergeConfig(next.value))
+    if (next.value) {
+      setDraft(mergeConfig(next.value))
+      setDirty(false)
+    }
   }), [scope])
 
   const update = (path: string, value: any) => {
@@ -102,6 +113,7 @@ function WebSearchSettingsCard(props: { scope: WebSearchSettingsScope }) {
       if (path === 'bing' || path === 'searxng') return { ...current, [path]: value }
       return { ...current, [path]: value }
     })
+    setDirty(true)
     setStatus('')
     setError('')
   }
@@ -112,6 +124,7 @@ function WebSearchSettingsCard(props: { scope: WebSearchSettingsScope }) {
     try {
       const fields = ['enabled', 'announceToAgent', 'fetch', 'engine', 'maxResults', 'timeoutMs', 'fetchTimeoutMs', 'maxResponseBytes', 'fetchMaxOutputChars', 'bing', 'searxng']
       for (const field of fields) await scope.set(field, draft[field])
+      setDirty(false)
       setStatus('已保存')
     } catch {
       setError('保存失败，请检查配置值。')
@@ -121,54 +134,67 @@ function WebSearchSettingsCard(props: { scope: WebSearchSettingsScope }) {
   const discard = () => {
     const next = scope.getSnapshot()
     setDraft(mergeConfig(next.value))
+    setDirty(false)
     setError('')
     setStatus('')
   }
 
   const disabled = snapshot.status !== 'ready' || !snapshot.writable
-  return React.createElement('article', { style: styles.card },
-    React.createElement('div', null,
-      React.createElement('h3', { style: styles.title }, '网页搜索与抓取'),
-      React.createElement('p', { style: styles.description }, '配置 Bing / SearXNG 搜索后端、返回限制和网页抓取行为。'),
-    ),
-    React.createElement('div', { style: styles.grid },
-      React.createElement(CheckField, { label: '启用工具', checked: draft.enabled, onChange: (value: any) => update('enabled', value) }),
-      React.createElement(CheckField, { label: '启用 Agent 操作提示', checked: draft.announceToAgent, onChange: (value: any) => update('announceToAgent', value) }),
-      React.createElement(CheckField, { label: '启用网页抓取', checked: draft.fetch, onChange: (value: any) => update('fetch', value) }),
-      React.createElement('label', { style: styles.field },
-        React.createElement('span', { style: styles.label }, '搜索引擎'),
-        React.createElement('select', { style: styles.input, value: draft.engine, onChange: (event: React.ChangeEvent<HTMLSelectElement>) => update('engine', event.target.value) },
-          React.createElement('option', { value: 'bing' }, 'Bing'),
-          React.createElement('option', { value: 'searxng' }, 'SearXNG'),
-        ),
+  return React.createElement('article', { style: { ...styles.card, ...(open ? styles.cardOpen : {}) } },
+    React.createElement('button', {
+      type: 'button',
+      style: styles.header,
+      'aria-expanded': open,
+      'aria-label': `${open ? '收起' : '展开'}：网页搜索与抓取`,
+      onClick: () => setOpen(!open),
+    },
+      React.createElement('span', { style: styles.headText },
+        React.createElement('span', { style: styles.title }, '网页搜索与抓取'),
+        React.createElement('span', { style: styles.description }, '配置 Bing / SearXNG 搜索后端、返回限制和网页抓取行为。'),
       ),
-      React.createElement(InputField, { label: '最大搜索结果', hint: '1 到 10', type: 'number', min: 1, max: 10, value: draft.maxResults, onChange: (value: any) => update('maxResults', value) }),
-      React.createElement(InputField, { label: '搜索超时（毫秒）', type: 'number', min: 1, value: draft.timeoutMs, onChange: (value: any) => update('timeoutMs', value) }),
-      React.createElement(InputField, { label: '抓取超时（毫秒）', type: 'number', min: 1, value: draft.fetchTimeoutMs, onChange: (value: any) => update('fetchTimeoutMs', value) }),
-      React.createElement(InputField, { label: '最大响应字节', type: 'number', min: 1, value: draft.maxResponseBytes, onChange: (value: any) => update('maxResponseBytes', value) }),
-      React.createElement(InputField, { label: '抓取输出上限', type: 'number', min: 1, value: draft.fetchMaxOutputChars, onChange: (value: any) => update('fetchMaxOutputChars', value) }),
+      dirty ? React.createElement('span', { style: styles.pending }, '未保存') : null,
+      React.createElement('span', { style: { ...styles.chevron, ...(open ? styles.chevronOpen : {}) }, 'aria-hidden': true }, '⌄'),
     ),
-    React.createElement('div', { style: styles.grid },
-      React.createElement('h4', { style: { margin: 0, gridColumn: '1 / -1' } }, 'Bing'),
-      React.createElement(InputField, { label: '市场', value: draft.bing.market, onChange: (value: any) => update('bing', { ...draft.bing, market: value }) }),
-      React.createElement(InputField, { label: '界面语言', value: draft.bing.setLang, onChange: (value: any) => update('bing', { ...draft.bing, setLang: value }) }),
-      React.createElement(InputField, { label: 'User-Agent（可选）', value: draft.bing.userAgent, onChange: (value: any) => update('bing', { ...draft.bing, userAgent: value }) }),
-    ),
-    React.createElement('div', { style: styles.grid },
-      React.createElement('h4', { style: { margin: 0, gridColumn: '1 / -1' } }, 'SearXNG'),
-      React.createElement(InputField, { label: '实例地址', value: draft.searxng.baseUrl, onChange: (value: any) => update('searxng', { ...draft.searxng, baseUrl: value }) }),
-      React.createElement(InputField, { label: '凭据引用', hint: '只填写引用名，不要填写密钥本身', value: draft.searxng.apiKeyRef, onChange: (value: any) => update('searxng', { ...draft.searxng, apiKeyRef: value }) }),
-      React.createElement(InputField, { label: '凭据 Header', value: draft.searxng.apiKeyHeader, onChange: (value: any) => update('searxng', { ...draft.searxng, apiKeyHeader: value }) }),
-      React.createElement(InputField, { label: '凭据前缀', value: draft.searxng.apiKeyPrefix, onChange: (value: any) => update('searxng', { ...draft.searxng, apiKeyPrefix: value }) }),
-      React.createElement(InputField, { label: '引擎列表', hint: '逗号分隔，可留空', value: draft.searxng.engines.join(', '), onChange: (value: any) => update('searxng', { ...draft.searxng, engines: value.split(',').map((item: string) => item.trim()).filter(Boolean) }) }),
-      React.createElement(InputField, { label: '分类列表', hint: '逗号分隔，可留空', value: draft.searxng.categories.join(', '), onChange: (value: any) => update('searxng', { ...draft.searxng, categories: value.split(',').map((item: string) => item.trim()).filter(Boolean) }) }),
-    ),
-    status ? React.createElement('span', { role: 'status' }, status) : null,
-    error ? React.createElement('span', { role: 'alert', style: styles.error }, error) : null,
-    React.createElement('div', { style: styles.actions },
-      React.createElement('button', { type: 'button', style: styles.button, disabled, onClick: discard }, '放弃修改'),
-      React.createElement('button', { type: 'button', style: { ...styles.button, ...styles.primary }, disabled, onClick: save }, '保存'),
-    ),
+    open ? React.createElement('div', { style: styles.body },
+      React.createElement('div', { style: styles.grid },
+        React.createElement(CheckField, { label: '启用工具', checked: draft.enabled, onChange: (value: any) => update('enabled', value) }),
+        React.createElement(CheckField, { label: '启用 Agent 操作提示', checked: draft.announceToAgent, onChange: (value: any) => update('announceToAgent', value) }),
+        React.createElement(CheckField, { label: '启用网页抓取', checked: draft.fetch, onChange: (value: any) => update('fetch', value) }),
+        React.createElement('label', { style: styles.field },
+          React.createElement('span', { style: styles.label }, '搜索引擎'),
+          React.createElement('select', { style: styles.input, value: draft.engine, onChange: (event: React.ChangeEvent<HTMLSelectElement>) => update('engine', event.target.value) },
+            React.createElement('option', { value: 'bing' }, 'Bing'),
+            React.createElement('option', { value: 'searxng' }, 'SearXNG'),
+          ),
+        ),
+        React.createElement(InputField, { label: '最大搜索结果', hint: '1 到 10', type: 'number', min: 1, max: 10, value: draft.maxResults, onChange: (value: any) => update('maxResults', value) }),
+        React.createElement(InputField, { label: '搜索超时（毫秒）', type: 'number', min: 1, value: draft.timeoutMs, onChange: (value: any) => update('timeoutMs', value) }),
+        React.createElement(InputField, { label: '抓取超时（毫秒）', type: 'number', min: 1, value: draft.fetchTimeoutMs, onChange: (value: any) => update('fetchTimeoutMs', value) }),
+        React.createElement(InputField, { label: '最大响应字节', type: 'number', min: 1, value: draft.maxResponseBytes, onChange: (value: any) => update('maxResponseBytes', value) }),
+        React.createElement(InputField, { label: '抓取输出上限', type: 'number', min: 1, value: draft.fetchMaxOutputChars, onChange: (value: any) => update('fetchMaxOutputChars', value) }),
+      ),
+      React.createElement('div', { style: styles.grid },
+        React.createElement('h4', { style: { margin: 0, gridColumn: '1 / -1' } }, 'Bing'),
+        React.createElement(InputField, { label: '市场', value: draft.bing.market, onChange: (value: any) => update('bing', { ...draft.bing, market: value }) }),
+        React.createElement(InputField, { label: '界面语言', value: draft.bing.setLang, onChange: (value: any) => update('bing', { ...draft.bing, setLang: value }) }),
+        React.createElement(InputField, { label: 'User-Agent（可选）', value: draft.bing.userAgent, onChange: (value: any) => update('bing', { ...draft.bing, userAgent: value }) }),
+      ),
+      React.createElement('div', { style: styles.grid },
+        React.createElement('h4', { style: { margin: 0, gridColumn: '1 / -1' } }, 'SearXNG'),
+        React.createElement(InputField, { label: '实例地址', value: draft.searxng.baseUrl, onChange: (value: any) => update('searxng', { ...draft.searxng, baseUrl: value }) }),
+        React.createElement(InputField, { label: '凭据引用', hint: '只填写引用名，不要填写密钥本身', value: draft.searxng.apiKeyRef, onChange: (value: any) => update('searxng', { ...draft.searxng, apiKeyRef: value }) }),
+        React.createElement(InputField, { label: '凭据 Header', value: draft.searxng.apiKeyHeader, onChange: (value: any) => update('searxng', { ...draft.searxng, apiKeyHeader: value }) }),
+        React.createElement(InputField, { label: '凭据前缀', value: draft.searxng.apiKeyPrefix, onChange: (value: any) => update('searxng', { ...draft.searxng, apiKeyPrefix: value }) }),
+        React.createElement(InputField, { label: '引擎列表', hint: '逗号分隔，可留空', value: draft.searxng.engines.join(', '), onChange: (value: any) => update('searxng', { ...draft.searxng, engines: value.split(',').map((item: string) => item.trim()).filter(Boolean) }) }),
+        React.createElement(InputField, { label: '分类列表', hint: '逗号分隔，可留空', value: draft.searxng.categories.join(', '), onChange: (value: any) => update('searxng', { ...draft.searxng, categories: value.split(',').map((item: string) => item.trim()).filter(Boolean) }) }),
+      ),
+      status ? React.createElement('span', { role: 'status' }, status) : null,
+      error ? React.createElement('span', { role: 'alert', style: styles.error }, error) : null,
+      React.createElement('div', { style: styles.actions },
+        React.createElement('button', { type: 'button', style: styles.button, disabled, onClick: discard }, '放弃修改'),
+        React.createElement('button', { type: 'button', style: { ...styles.button, ...styles.primary }, disabled, onClick: save }, '保存'),
+      ),
+    ) : null,
   )
 }
 

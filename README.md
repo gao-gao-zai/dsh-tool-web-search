@@ -87,7 +87,7 @@ No custom frontend page or hand-written YAML is required. After changing the pac
 To verify that the new Client half was loaded, this URL must return HTTP 200 after the restart:
 
 ```text
-http://127.0.0.1:3080/plugins/@gao-gao-zai/dsh-tool-web-search/client.js
+http://127.0.0.1:3080/plugins/dsh-tool-web-search/client.js
 ```
 
 If it returns HTTP 404, the running backend is still using an old profile boot or a different `DSH_HOME`; the settings card cannot appear until that backend is restarted with the profile containing this package.
