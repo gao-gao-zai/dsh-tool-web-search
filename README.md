@@ -80,9 +80,11 @@ The result should contain a `Fetched https://example.com/ (HTTP 200)` heading an
 
 ## Configure In DSH Web UI
 
-The plugin registers the DSH settings namespace `dsh-web-search` with `installSettingsSection`, so its settings are editable from the Web UI settings surface. No custom frontend page or hand-written YAML is required.
+The plugin registers the DSH settings namespace `dsh-web-search` and ships a browser settings card. In the current Web UI bundle, open **Settings → Web UI Plugins → 网页搜索与抓取**. In the official DSH settings surface, the same card is also available under **Settings → Plugins → Plugin configuration**.
 
-Open the settings panel for `dsh-web-search` and edit:
+No custom frontend page or hand-written YAML is required. After changing the package or its client bundle, restart the DSH web profile and refresh the existing Web UI before checking the card.
+
+The card edits:
 
 - `enabled`: enable or disable both replacement tools;
 - `announceToAgent`: enable or disable the operational system-prompt guidance;
