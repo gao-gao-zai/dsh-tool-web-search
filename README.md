@@ -82,7 +82,15 @@ The result should contain a `Fetched https://example.com/ (HTTP 200)` heading an
 
 The plugin registers the DSH settings namespace `dsh-web-search` and ships a browser settings card. In the current Web UI bundle, open **Settings → Web UI Plugins → 网页搜索与抓取**. In the official DSH settings surface, the same card is also available under **Settings → Plugins → Plugin configuration**.
 
-No custom frontend page or hand-written YAML is required. After changing the package or its client bundle, restart the DSH web profile and refresh the existing Web UI before checking the card.
+No custom frontend page or hand-written YAML is required. After changing the package or its client bundle, restart the **DSH backend process** that owns `http://127.0.0.1:3080`, then refresh the browser page. A browser-only refresh is insufficient because the backend generates `window.__DSH_BOOT__` and serves `/plugins/<package>/client.js` at process startup.
+
+To verify that the new Client half was loaded, this URL must return HTTP 200 after the restart:
+
+```text
+http://127.0.0.1:3080/plugins/@linxin666/dsh-tool-web-search/client.js
+```
+
+If it returns HTTP 404, the running backend is still using an old profile boot or a different `DSH_HOME`; the settings card cannot appear until that backend is restarted with the profile containing this package.
 
 The card edits:
 
