@@ -40,23 +40,36 @@ Use an absolute path on other machines. The package includes the prebuilt `lib/`
 
 ### Disable the official web tools
 
-This package intentionally uses the same model-facing names as the official DSH web tools: `web_search` and `web_fetch`. Disable the shipped `tool-web` row before creating a session with this replacement.
+This package intentionally uses the same model-facing names as the official DSH web tools: `web_search` and `web_fetch`. DSH does **not** automatically override a same-name tool. If the official `tool-web` remains enabled, it can shadow the replacement in the Agent scope or cause a duplicate-registration error during startup.
 
-Do not edit the shipped preset under the DSH installation directory. Instead, duplicate the active preset into the user preset directory and change only the copied row:
+The official row must be disabled at both composition layers:
+
+1. **Host profile layer**: the user's `C:\Users\<user>\.dsh\profiles\web\cordis.patch.yml` must contain:
+
+   ```yaml
+   - id: tool-web
+     disabled: true
+   ```
+
+2. **Agent preset layer**: copy the shipped `standard` preset into the user-owned `${DSH_HOME:-$HOME/.dsh}/.agent-presets/web-search/` directory, then set the copied `tool-web` row to:
+
+   ```yaml
+   - id: tool-web
+     name: '@deepseek-ai/dsh-tool-web'
+     disabled: true
+   ```
+
+The default preset must point to that copy in `settings.yaml`:
 
 ```yaml
-- id: tool-web
-  name: '@deepseek-ai/dsh-tool-web'
-  disabled: true
+agent-presets:
+  default: web-search
 ```
 
-Select that user-owned preset as the profile default. The exact DSH UI label may be `Agent Presets`, `Profiles`, or `Plugins` depending on the installed web UI version. The important result is that the effective preset contains `disabled: true` for `tool-web`.
+The shipped preset under the DSH installation directory must not be edited. The current user's configuration already applies this arrangement. The package's `cordis.patch.yml` installs the replacement plugin and its bundled Agent Skill; it does not modify shipped presets.
 
-The package's `cordis.patch.yml` installs the replacement plugin and its bundled Agent Skill, but does not modify a shipped preset after the preset layer is mounted.
+After changing these settings, restart the DSH backend and create a **new Agent session**. Existing sessions keep the preset composition they were created with. Verify that `web_search` accepts `query`, `limit`, and `language`; the official implementation only accepts `query`.
 
-### Restart and verify
-
-Restart the profile after installation and create a **new Agent session**. Existing sessions keep the preset composition they were created with.
 
 ```powershell
 # Stop the existing dsh web process with Ctrl+C, then run:
